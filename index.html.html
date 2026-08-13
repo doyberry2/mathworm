@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>수학 지렁이 키우기 - Math Worm Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;600;800&display=swap');
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Noto Sans KR', sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            touch-action: manipulation;
+        }
+
+        .font-jua {
+            font-family: 'Jua', sans-serif;
+        }
+
+        canvas {
+            background-color: #1e293b;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+            border-radius: 1rem;
+            touch-action: none;
+            display: block;
+        }
+
+        .dpad-btn {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .dpad-btn:active {
+            background: rgba(99, 102, 241, 0.7);
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between items-center p-2 select-none">
+
+    <!-- Header Area -->
+    <header class="w-full max-w-2xl flex justify-between items-center py-1.5 px-3 bg-slate-800/90 rounded-xl border border-slate-700/80 backdrop-blur shrink-0">
+        <div class="flex items-center space-x-2">
+            <span class="text-xl sm:text-2xl">🐛</span>
+            <div>
+                <h1 class="font-jua text-base sm:text-xl text-indigo-400 tracking-wide leading-none">수학 지렁이 키우기</h1>
+                <p class="text-[9px] sm:text-[11px] text-slate-400 leading-none mt-0.5">Math Worm Adventure • 거듭제곱 정복기</p>
+            </div>
+        </div>
+        <button onclick="toggleStudyModal()" class="px-2.5 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow">
+            <i class="fa-solid fa-book"></i> 암기표
+        </button>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-2xl flex-grow flex flex-col items-center justify-center relative my-1">
+
+        <!-- Question & Status HUD Bar -->
+        <div id="hud-bar" class="w-full bg-slate-800/90 border border-slate-700/80 rounded-xl p-2 mb-1.5 flex justify-between items-center gap-2 shadow-md shrink-0">
+            <!-- Current Target Question -->
+            <div class="flex items-center space-x-2 bg-indigo-950/80 border border-indigo-500/30 px-3 py-1 rounded-lg">
+                <span class="text-[10px] sm:text-xs text-indigo-300 font-bold uppercase">목표:</span>
+                <span id="target-question" class="font-jua text-xl sm:text-2xl text-yellow-300 tracking-wider">2⁰ = ?</span>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="flex items-center gap-3 text-xs font-bold">
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-400 text-[9px]">점수</span>
+                    <span id="stat-score" class="font-jua text-base sm:text-lg text-emerald-400 leading-none">0</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-400 text-[9px]">지렁이 길이</span>
+                    <span id="stat-length" class="font-jua text-base sm:text-lg text-indigo-400 leading-none">3 m</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-400 text-[9px]">콤보</span>
+                    <span id="stat-combo" class="font-jua text-base sm:text-lg text-amber-400 leading-none">0 🔥</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Viewport -->
+        <div class="relative w-full flex justify-center items-center flex-grow overflow-hidden">
+            <canvas id="gameCanvas" class="border-2 border-indigo-500/30"></canvas>
+
+            <!-- Start / Menu Screen Overlay -->
+            <div id="start-overlay" class="absolute inset-0 bg-slate-900/95 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center p-4 text-center z-20">
+                <div class="text-4xl mb-2 animate-bounce">🐛🍎</div>
+                <h2 class="font-jua text-2xl sm:text-3xl text-white mb-1">수학 지렁이 키우기</h2>
+                <p class="text-slate-300 text-xs max-w-sm mb-4 leading-relaxed">
+                    거듭제곱 문제의 정답 숫자를 먹어 지렁이를 길게 키워보세요!<br>
+                    <span class="text-amber-300 font-bold">$2^0=1, 3^0=1, 5^0=1$</span> 포함 다양한 거듭제곱이 등장합니다.
+                </p>
+
+                <div class="bg-slate-800 border border-slate-700 p-3 rounded-xl text-left text-xs mb-4 w-full max-w-xs space-y-1 text-slate-300">
+                    <p class="font-bold text-amber-400 mb-0.5">🎮 조작 방법</p>
+                    <p>• <strong>PC</strong>: 방향키(↑ ↓ ← →) 또는 WASD</p>
+                    <p>• <strong>모바일</strong>: 화면 하단 D-Pad 버튼 터치</p>
+                    <p>• ❌ <strong>오답 먹이</strong>: 길이 감소 & 점수 차감!</p>
+                </div>
+
+                <button onclick="startGame()" class="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-jua text-lg rounded-xl shadow-lg transition transform hover:scale-105 active:scale-95">
+                    🚀 게임 시작하기!
+                </button>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameover-overlay" class="hidden absolute inset-0 bg-slate-900/95 backdrop-blur-md rounded-xl flex flex-col items-center justify-center p-4 text-center z-20">
+                <div class="text-4xl mb-1">💥</div>
+                <h2 class="font-jua text-2xl sm:text-3xl text-rose-400 mb-1">게임 종료!</h2>
+                <p id="gameover-reason" class="text-xs text-slate-400 mb-3">벽이나 자신의 몸에 부딪혔습니다.</p>
+
+                <div class="bg-slate-800/80 border border-slate-700 p-3 rounded-xl w-full max-w-xs mb-3 space-y-1.5">
+                    <div class="flex justify-between items-center text-xs border-b border-slate-700 pb-1.5">
+                        <span class="text-slate-400">최종 점수</span>
+                        <span id="final-score" class="font-jua text-xl text-emerald-400">0점</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 text-xs pt-1">
+                        <div>
+                            <span class="text-slate-400 block text-[9px]">최대 길이</span>
+                            <span id="final-length" class="font-jua text-xs text-indigo-300">0 m</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[9px]">맞힌 문제</span>
+                            <span id="final-correct" class="font-jua text-xs text-emerald-300">0개</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[9px]">최대 콤보</span>
+                            <span id="final-combo" class="font-jua text-xs text-amber-300">0회</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Review Wrong Answers -->
+                <div id="wrong-review-box" class="hidden w-full max-w-xs bg-rose-950/40 border border-rose-800/50 p-2 rounded-lg text-left text-xs text-rose-300 mb-3 max-h-20 overflow-y-auto">
+                    <div class="font-bold mb-1 text-rose-400 text-[11px]"><i class="fa-solid fa-triangle-exclamation"></i> 틀린 문제 다시보기:</div>
+                    <ul id="wrong-review-list" class="space-y-0.5 list-disc list-inside text-[10px]"></ul>
+                </div>
+
+                <div class="flex gap-2 w-full max-w-xs">
+                    <button onclick="toggleStudyModal()" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs transition">
+                        📖 암기표
+                    </button>
+                    <button onclick="startGame()" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
+                        🔄 다시 시작
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Virtual D-Pad -->
+        <div id="mobile-controls" class="w-full max-w-[200px] mt-1.5 grid grid-cols-3 gap-1.5 sm:hidden justify-items-center shrink-0">
+            <div></div>
+            <button ontouchstart="handleDpad('UP', event)" class="dpad-btn w-11 h-11 rounded-xl flex items-center justify-center text-lg text-white">▲</button>
+            <div></div>
+            <button ontouchstart="handleDpad('LEFT', event)" class="dpad-btn w-11 h-11 rounded-xl flex items-center justify-center text-lg text-white">◄</button>
+            <button ontouchstart="handleDpad('DOWN', event)" class="dpad-btn w-11 h-11 rounded-xl flex items-center justify-center text-lg text-white">▼</button>
+            <button ontouchstart="handleDpad('RIGHT', event)" class="dpad-btn w-11 h-11 rounded-xl flex items-center justify-center text-lg text-white">►</button>
+        </div>
+    </main>
+
+    <!-- Study Reference Modal -->
+    <div id="study-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto p-4 text-slate-200 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 class="font-jua text-xl text-indigo-400 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open"></i> 거듭제곱 암기표
+                </h3>
+                <button onclick="toggleStudyModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+            </div>
+
+            <div class="text-xs bg-amber-950/60 border border-amber-600/40 text-amber-300 p-2.5 rounded-xl font-bold">
+                💡 모든 수의 0제곱은 1입니다! ($a^0 = 1$, 단 $a \neq 0$)
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <!-- 2 powers -->
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                    <h4 class="font-bold text-xs text-emerald-400 border-b border-slate-700 pb-1 mb-2">2의 거듭제곱 ($2^n$)</h4>
+                    <div class="grid grid-cols-2 gap-1 text-[11px]">
+                        <div class="bg-emerald-950/60 text-emerald-300 p-1 rounded font-bold">2⁰ = 1 ⭐</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2¹ = 2</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2² = 4</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2³ = 8</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2⁴ = 16</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2⁵ = 32</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2⁶ = 64</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2⁷ = 128</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2⁸ = 256</div>
+                        <div class="bg-slate-700/50 p-1 rounded">2⁹ = 512</div>
+                        <div class="bg-indigo-900/60 text-indigo-300 p-1 rounded col-span-2 text-center font-bold">2¹⁰ = 1024</div>
+                    </div>
+                </div>
+
+                <!-- 3 & 5 powers -->
+                <div class="space-y-3">
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                        <h4 class="font-bold text-xs text-blue-400 border-b border-slate-700 pb-1 mb-1.5">3의 거듭제곱 ($3^n$)</h4>
+                        <div class="grid grid-cols-2 gap-1 text-[11px]">
+                            <div class="bg-blue-950/60 text-blue-300 p-1 rounded font-bold">3⁰ = 1 ⭐</div>
+                            <div class="bg-slate-700/50 p-1 rounded">3¹ = 3</div>
+                            <div class="bg-slate-700/50 p-1 rounded">3² = 9</div>
+                            <div class="bg-slate-700/50 p-1 rounded">3³ = 27</div>
+                            <div class="bg-slate-700/50 p-1 rounded">3⁴ = 81</div>
+                            <div class="bg-slate-700/50 p-1 rounded">3⁵ = 243</div>
+                            <div class="bg-slate-700/50 p-1 rounded col-span-2">3⁶ = 729</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+                        <h4 class="font-bold text-xs text-purple-400 border-b border-slate-700 pb-1 mb-1.5">5의 거듭제곱 ($5^n$)</h4>
+                        <div class="grid grid-cols-2 gap-1 text-[11px]">
+                            <div class="bg-purple-950/60 text-purple-300 p-1 rounded font-bold">5⁰ = 1 ⭐</div>
+                            <div class="bg-slate-700/50 p-1 rounded">5¹ = 5</div>
+                            <div class="bg-slate-700/50 p-1 rounded">5² = 25</div>
+                            <div class="bg-slate-700/50 p-1 rounded">5³ = 125</div>
+                            <div class="bg-slate-700/50 p-1 rounded col-span-2">5⁴ = 625</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Squares -->
+                <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 md:col-span-2">
+                    <h4 class="font-bold text-xs text-amber-400 border-b border-slate-700 pb-1 mb-2">주요 제곱수 ($n^2$)</h4>
+                    <div class="grid grid-cols-3 sm:grid-cols-5 gap-1 text-center text-[11px]">
+                        <div class="bg-slate-700/50 p-1 rounded">9² = 81</div>
+                        <div class="bg-slate-700/50 p-1 rounded">10² = 100</div>
+                        <div class="bg-slate-700/50 p-1 rounded">11² = 121</div>
+                        <div class="bg-slate-700/50 p-1 rounded">12² = 144</div>
+                        <div class="bg-slate-700/50 p-1 rounded">13² = 169</div>
+                        <div class="bg-slate-700/50 p-1 rounded">14² = 196</div>
+                        <div class="bg-slate-700/50 p-1 rounded">15² = 225</div>
+                        <div class="bg-slate-700/50 p-1 rounded">16² = 256</div>
+                        <div class="bg-slate-700/50 p-1 rounded">17² = 289</div>
+                        <div class="bg-slate-700/50 p-1 rounded">18² = 324</div>
+                        <div class="bg-slate-700/50 p-1 rounded">19² = 361</div>
+                        <div class="bg-slate-700/50 p-1 rounded">20² = 400</div>
+                        <div class="bg-amber-900/60 text-amber-300 font-bold p-1 rounded col-span-3 sm:col-span-3">25² = 625</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center pt-1">
+                <button onclick="toggleStudyModal()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition text-xs">
+                    닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Web Audio API Synthesizer ---
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'eat') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.25);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'gameover') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.linearRampToValueAtTime(120, now + 0.5);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                }
+            } catch (e) {
+                // Audio silent fallback
+            }
+        }
+
+        const QUESTION_BANK = [
+            // Base 2 (including 2^0)
+            { exp: "2⁰", val: 1 }, { exp: "2¹", val: 2 }, { exp: "2²", val: 4 },
+            { exp: "2³", val: 8 }, { exp: "2⁴", val: 16 }, { exp: "2⁵", val: 32 },
+            { exp: "2⁶", val: 64 }, { exp: "2⁷", val: 128 }, { exp: "2⁸", val: 256 },
+            { exp: "2⁹", val: 512 }, { exp: "2¹⁰", val: 1024 },
+
+            // Base 3 (including 3^0)
+            { exp: "3⁰", val: 1 }, { exp: "3¹", val: 3 }, { exp: "3²", val: 9 },
+            { exp: "3³", val: 27 }, { exp: "3⁴", val: 81 }, { exp: "3⁵", val: 243 },
+            { exp: "3⁶", val: 729 },
+
+            // Base 5 (including 5^0)
+            { exp: "5⁰", val: 1 }, { exp: "5¹", val: 5 }, { exp: "5²", val: 25 },
+            { exp: "5³", val: 125 }, { exp: "5⁴", val: 625 },
+
+            // Squares
+            { exp: "9²", val: 81 }, { exp: "10²", val: 100 }, { exp: "11²", val: 121 },
+            { exp: "12²", val: 144 }, { exp: "13²", val: 169 }, { exp: "14²", val: 196 },
+            { exp: "15²", val: 225 }, { exp: "16²", val: 256 }, { exp: "17²", val: 289 },
+            { exp: "18²", val: 324 }, { exp: "19²", val: 361 }, { exp: "20²", val: 400 },
+            { exp: "25²", val: 625 }
+        ];
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const GRID_COLS = 20;
+        const GRID_ROWS = 20;
+        let CELL_SIZE = 20;
+        let displaySize = 300;
+        let dpr = 1;
+
+        let gameInterval = null;
+        let isRunning = false;
+
+        // Worm state
+        let worm = [];
+        let dir = { x: 1, y: 0 };
+        let nextDir = { x: 1, y: 0 };
+
+        // Game stats
+        let currentQuestion = null;
+        let foods = []; // Food objects: {x, y, val, isCorrect}
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let correctCount = 0;
+        let maxLength = 3;
+        let wrongHistory = [];
+        let particles = [];
+
+        // Dynamic viewport resize calculator
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            if (!container) return;
+
+            const header = document.querySelector('header');
+            const hud = document.getElementById('hud-bar');
+            const dpad = document.getElementById('mobile-controls');
+
+            const headerH = header ? header.offsetHeight : 45;
+            const hudH = hud ? hud.offsetHeight : 45;
+            const dpadH = (dpad && window.innerWidth < 640) ? dpad.offsetHeight : 0;
+
+            // Compute available height without scrolling
+            const availableH = window.innerHeight - headerH - hudH - dpadH - 40;
+            const availableW = container.clientWidth - 16;
+
+            displaySize = Math.max(220, Math.min(availableW, availableH, 460));
+
+            dpr = Math.min(window.devicePixelRatio || 1, 3);
+
+            // High DPI Scaling for crystal clear HD numbers & smooth shapes
+            canvas.style.width = displaySize + 'px';
+            canvas.style.height = displaySize + 'px';
+            canvas.width = Math.floor(displaySize * dpr);
+            canvas.height = Math.floor(displaySize * dpr);
+
+            CELL_SIZE = displaySize / GRID_COLS;
+
+            if (!isRunning) {
+                render();
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function startGame() {
+            document.getElementById('start-overlay').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.add('hidden');
+
+            worm = [
+                { x: 5, y: 10 },
+                { x: 4, y: 10 },
+                { x: 3, y: 10 }
+            ];
+            dir = { x: 1, y: 0 };
+            nextDir = { x: 1, y: 0 };
+
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            correctCount = 0;
+            maxLength = 3;
+            wrongHistory = [];
+            particles = [];
+
+            updateHUD();
+            spawnNewQuestionAndFoods();
+
+            isRunning = true;
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, 135);
+        }
+
+        function spawnNewQuestionAndFoods() {
+            currentQuestion = QUESTION_BANK[Math.floor(Math.random() * QUESTION_BANK.length)];
+            document.getElementById('target-question').innerText = `${currentQuestion.exp} = ?`;
+
+            foods = [];
+            const valsToSpawn = [currentQuestion.val];
+            
+            while (valsToSpawn.length < 4) {
+                let distractor;
+                const randType = Math.random();
+                if (randType < 0.4) {
+                    distractor = currentQuestion.val + (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 4) + 1);
+                } else {
+                    distractor = QUESTION_BANK[Math.floor(Math.random() * QUESTION_BANK.length)].val;
+                }
+                if (distractor >= 0 && !valsToSpawn.includes(distractor)) {
+                    valsToSpawn.push(distractor);
+                }
+            }
+
+            valsToSpawn.sort(() => Math.random() - 0.5);
+
+            valsToSpawn.forEach(val => {
+                let pos;
+                let isOccupied = true;
+                while (isOccupied) {
+                    pos = {
+                        x: Math.floor(Math.random() * (GRID_COLS - 2)) + 1,
+                        y: Math.floor(Math.random() * (GRID_ROWS - 2)) + 1
+                    };
+                    isOccupied = worm.some(segment => segment.x === pos.x && segment.y === pos.y) ||
+                                 foods.some(food => food.x === pos.x && food.y === pos.y);
+                }
+                foods.push({
+                    x: pos.x,
+                    y: pos.y,
+                    val: val,
+                    isCorrect: (val === currentQuestion.val)
+                });
+            });
+        }
+
+        function gameLoop() {
+            if (!isRunning) return;
+
+            dir = { ...nextDir };
+            const head = { x: worm[0].x + dir.x, y: worm[0].y + dir.y };
+
+            // Wall Collision Check
+            if (head.x < 0 || head.x >= GRID_COLS || head.y < 0 || head.y >= GRID_ROWS) {
+                endGame("벽에 부딪혔습니다!");
+                return;
+            }
+
+            // Self Collision Check
+            for (let i = 0; i < worm.length; i++) {
+                if (worm[i].x === head.x && worm[i].y === head.y) {
+                    endGame("자신의 몸에 부딪혔습니다!");
+                    return;
+                }
+            }
+
+            worm.unshift(head);
+
+            // Check Food Collision
+            let eatenIndex = foods.findIndex(f => f.x === head.x && f.y === head.y);
+
+            if (eatenIndex !== -1) {
+                const eatenFood = foods[eatenIndex];
+
+                if (eatenFood.isCorrect) {
+                    playSound('eat');
+                    correctCount++;
+                    combo++;
+                    if (combo > maxCombo) maxCombo = combo;
+                    
+                    const bonus = combo * 20;
+                    score += 100 + bonus;
+
+                    createParticles(
+                        (head.x + 0.5) * CELL_SIZE, 
+                        (head.y + 0.5) * CELL_SIZE, 
+                        '#10b981'
+                    );
+
+                    if (worm.length > maxLength) maxLength = worm.length;
+                    
+                    updateHUD();
+                    spawnNewQuestionAndFoods();
+
+                } else {
+                    playSound('wrong');
+                    combo = 0;
+                    score = Math.max(0, score - 50);
+
+                    wrongHistory.push(`${currentQuestion.exp} = ${currentQuestion.val} (먹은 숫자: ${eatenFood.val})`);
+
+                    if (worm.length > 3) worm.pop();
+                    if (worm.length > 3) worm.pop();
+                    worm.pop(); 
+
+                    createParticles(
+                        (head.x + 0.5) * CELL_SIZE, 
+                        (head.y + 0.5) * CELL_SIZE, 
+                        '#f43f5e'
+                    );
+
+                    updateHUD();
+                    spawnNewQuestionAndFoods();
+                }
+
+            } else {
+                worm.pop();
+            }
+
+            if (worm.length > maxLength) maxLength = worm.length;
+
+            render();
+        }
+
+        function render() {
+            ctx.save();
+            ctx.scale(dpr, dpr);
+
+            // 1. Clear Grid Background
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, displaySize, displaySize);
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= GRID_COLS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * CELL_SIZE, 0);
+                ctx.lineTo(i * CELL_SIZE, displaySize);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, i * CELL_SIZE);
+                ctx.lineTo(displaySize, i * CELL_SIZE);
+                ctx.stroke();
+            }
+
+            // 2. Draw High-Definition Food Orbs & Crispy Sharp Numbers
+            foods.forEach(food => {
+                const cx = (food.x + 0.5) * CELL_SIZE;
+                const cy = (food.y + 0.5) * CELL_SIZE;
+                const r = CELL_SIZE * 0.44;
+
+                // Glowing background orb
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.fillStyle = '#f59e0b';
+                ctx.fill();
+                ctx.lineWidth = 1.8;
+                ctx.strokeStyle = '#fef08a';
+                ctx.stroke();
+
+                // HD Crisp Number Text Rendering
+                const valStr = String(food.val);
+                let fontSize = CELL_SIZE * 0.44;
+                if (valStr.length >= 4) fontSize = CELL_SIZE * 0.30;
+                else if (valStr.length === 3) fontSize = CELL_SIZE * 0.36;
+
+                ctx.font = `900 ${fontSize}px 'Jua', 'Noto Sans KR', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Sharp text border outline
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2.5;
+                ctx.lineJoin = 'round';
+                ctx.strokeText(valStr, cx, cy + 0.5);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(valStr, cx, cy + 0.5);
+            });
+
+            // 3. Draw Worm Segments
+            for (let i = worm.length - 1; i >= 0; i--) {
+                const seg = worm[i];
+                const cx = (seg.x + 0.5) * CELL_SIZE;
+                const cy = (seg.y + 0.5) * CELL_SIZE;
+                const r = CELL_SIZE * 0.42;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+
+                if (i === 0) {
+                    // Head
+                    ctx.fillStyle = '#10b981';
+                    ctx.fill();
+
+                    // Eyes
+                    ctx.fillStyle = '#ffffff';
+                    const eyeOffset = r * 0.35;
+                    ctx.beginPath();
+                    ctx.arc(cx + dir.x * eyeOffset - dir.y * eyeOffset, cy + dir.y * eyeOffset + dir.x * eyeOffset, r * 0.25, 0, Math.PI * 2);
+                    ctx.arc(cx + dir.x * eyeOffset + dir.y * eyeOffset, cy + dir.y * eyeOffset - dir.x * eyeOffset, r * 0.25, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(cx + dir.x * eyeOffset - dir.y * eyeOffset, cy + dir.y * eyeOffset + dir.x * eyeOffset, r * 0.12, 0, Math.PI * 2);
+                    ctx.arc(cx + dir.x * eyeOffset + dir.y * eyeOffset, cy + dir.y * eyeOffset - dir.x * eyeOffset, r * 0.12, 0, Math.PI * 2);
+                    ctx.fill();
+
+                } else {
+                    ctx.fillStyle = (i % 2 === 0) ? '#34d399' : '#059669';
+                    ctx.fill();
+                }
+            }
+
+            // 4. Draw Explosive Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.04;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.alpha;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 12; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 1;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 2,
+                    color: color,
+                    alpha: 1.0
+                });
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('stat-score').innerText = score;
+            document.getElementById('stat-length').innerText = `${worm.length} m`;
+            document.getElementById('stat-combo').innerText = `${combo} 🔥`;
+        }
+
+        window.addEventListener('keydown', e => {
+            if (!isRunning) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (dir.y === 0) nextDir = { x: 0, y: -1 };
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (dir.y === 0) nextDir = { x: 0, y: 1 };
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (dir.x === 0) nextDir = { x: -1, y: 0 };
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (dir.x === 0) nextDir = { x: 1, y: 0 };
+                    break;
+            }
+        });
+
+        function handleDpad(direction, e) {
+            if (e) e.preventDefault();
+            if (!isRunning) return;
+
+            if (direction === 'UP' && dir.y === 0) nextDir = { x: 0, y: -1 };
+            if (direction === 'DOWN' && dir.y === 0) nextDir = { x: 0, y: 1 };
+            if (direction === 'LEFT' && dir.x === 0) nextDir = { x: -1, y: 0 };
+            if (direction === 'RIGHT' && dir.x === 0) nextDir = { x: 1, y: 0 };
+        }
+
+        function endGame(reason) {
+            isRunning = false;
+            clearInterval(gameInterval);
+            playSound('gameover');
+
+            document.getElementById('gameover-reason').innerText = reason;
+            document.getElementById('final-score').innerText = `${score}점`;
+            document.getElementById('final-length').innerText = `${maxLength} m`;
+            document.getElementById('final-correct').innerText = `${correctCount}개`;
+            document.getElementById('final-combo').innerText = `${maxCombo}회`;
+
+            const reviewBox = document.getElementById('wrong-review-box');
+            const reviewList = document.getElementById('wrong-review-list');
+            reviewList.innerHTML = '';
+
+            if (wrongHistory.length > 0) {
+                reviewBox.classList.remove('hidden');
+                wrongHistory.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerText = item;
+                    reviewList.appendChild(li);
+                });
+            } else {
+                reviewBox.classList.add('hidden');
+            }
+
+            document.getElementById('gameover-overlay').classList.remove('hidden');
+
+            if (score >= 500 && typeof confetti === 'function') {
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+        }
+
+        function toggleStudyModal() {
+            const modal = document.getElementById('study-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        // On window initial load, resize canvas immediately
+        window.onload = function() {
+            resizeCanvas();
+        };
+    </script>
+</body>
+</html>
